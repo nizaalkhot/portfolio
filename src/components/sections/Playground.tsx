@@ -4,7 +4,7 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Button } from "@/components/ui/Button";
-import { Play, RotateCcw, Sparkles } from "lucide-react";
+import { Play, RotateCcw, Sparkles, Terminal, FileCode, Cpu, ShieldAlert, CheckCircle2, Activity } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type Status = "idle" | "thinking" | "tool_call" | "done";
@@ -18,76 +18,296 @@ type Agent = {
   logs: string[];
 };
 
-const initialAgents: Agent[] = [
-  {
-    id: "research",
-    label: "Research",
-    role: "Scan sources, collect citations",
-    toolLabel: "tool.web_search",
-    status: "idle",
-    logs: [],
-  },
-  {
-    id: "analyst",
-    label: "Analyst",
-    role: "Synthesize and rank findings",
-    toolLabel: "tool.vector_query",
-    status: "idle",
-    logs: [],
-  },
-  {
-    id: "writer",
-    label: "Writer",
-    role: "Compose final output",
-    toolLabel: "tool.generate",
-    status: "idle",
-    logs: [],
-  },
-];
+type ScenarioId = "fraud" | "codegen" | "chaos";
 
-const samplePrompts = [
-  "Map the competitive landscape for AI coding assistants.",
-  "Summarize Claude 4.5's agentic capabilities for a CTO.",
-  "Compare LangGraph vs CrewAI for a production RAG pipeline.",
-];
-
-const scripts: Record<string, { agent: string; status: Status; log: string; ms: number }[]> = {
-  default: [
-    { agent: "research", status: "thinking", log: "parsing prompt → 4 subqueries", ms: 600 },
-    { agent: "research", status: "tool_call", log: "web_search(q=\"{topic}\") → 12 hits", ms: 900 },
-    { agent: "research", status: "tool_call", log: "scrape_batch(urls=[...]) ✓", ms: 700 },
-    { agent: "research", status: "done", log: "handing off 8 citations →", ms: 400 },
-    { agent: "analyst", status: "thinking", log: "reading research context…", ms: 700 },
-    { agent: "analyst", status: "tool_call", log: "vector_query(k=6, rerank=true)", ms: 900 },
-    { agent: "analyst", status: "thinking", log: "ranking claims by source strength", ms: 700 },
-    { agent: "analyst", status: "done", log: "distilled 3 key themes →", ms: 400 },
-    { agent: "writer", status: "thinking", log: "outlining report structure", ms: 600 },
-    { agent: "writer", status: "tool_call", log: "generate(model=claude-4.5)", ms: 1200 },
-    { agent: "writer", status: "done", log: "draft ready · 842 tokens", ms: 400 },
-  ],
+type Scenario = {
+  id: ScenarioId;
+  name: string;
+  subtitle: string;
+  defaultPrompt: string;
+  agents: Agent[];
+  script: { agent: string; status: Status; log: string; ms: number }[];
+  stateJson: (step: number) => string;
+  outputMarkdown: string;
+  metrics: {
+    latency: string;
+    tokens: string;
+    compliance: string;
+    model: string;
+  };
 };
 
-const finalOutput = `## Executive Summary
+const SCENARIOS: Record<ScenarioId, Scenario> = {
+  fraud: {
+    id: "fraud",
+    name: "Banking Fraud Mesh (Drishti)",
+    subtitle: "Google ADK · Real-Time Scam Interceptor",
+    defaultPrompt: "Ingest suspicious ₹85,000 UPI transfer with unverified remote support APK payload.",
+    agents: [
+      {
+        id: "ingress",
+        label: "Ingress",
+        role: "Event parsing & device check",
+        toolLabel: "stream.telemetry",
+        status: "idle",
+        logs: [],
+      },
+      {
+        id: "mule_tracer",
+        label: "Mule Tracer",
+        role: "Neo4j subgraph hop hunter",
+        toolLabel: "tool.neo4j_graph",
+        status: "idle",
+        logs: [],
+      },
+      {
+        id: "interceptor",
+        label: "FIU Interceptor",
+        role: "Halt settlement & freeze funds",
+        toolLabel: "api.fiu_ind_rails",
+        status: "idle",
+        logs: [],
+      },
+    ],
+    script: [
+      { agent: "ingress", status: "thinking", log: "evaluating tx_id=0x92f (amount=₹85,000)...", ms: 500 },
+      { agent: "ingress", status: "tool_call", log: "apk_sandbox.decompile() → [BIND_ACCESSIBILITY] flagged", ms: 800 },
+      { agent: "ingress", status: "done", log: "dispatched telemetry to mule graph →", ms: 400 },
+      { agent: "mule_tracer", status: "thinking", log: "querying recipient VPA in Neo4j...", ms: 600 },
+      { agent: "mule_tracer", status: "tool_call", log: "cypher.find_cycles(hops=3) → 4 mule accounts detected", ms: 900 },
+      { agent: "mule_tracer", status: "done", log: "clustering coefficient 0.88 · fraud ring 42 confirmed →", ms: 400 },
+      { agent: "interceptor", status: "thinking", log: "synthesizing ADK multi-agent confidence score...", ms: 500 },
+      { agent: "interceptor", status: "tool_call", log: "settlement_gateway.freeze_and_hold(risk=0.994)", ms: 1000 },
+      { agent: "interceptor", status: "done", log: "transaction blocked in 148ms · FIU report filed ✓", ms: 400 },
+    ],
+    stateJson: (step) =>
+      JSON.stringify(
+        {
+          engine: "Google ADK",
+          tx_id: "0x92f8103",
+          amount_inr: 85000,
+          risk_assessment: {
+            score: step >= 7 ? 0.994 : step >= 4 ? 0.72 : 0.35,
+            action: step >= 7 ? "BLOCK_AND_FREEZE" : "INVESTIGATING",
+            mule_ring_id: step >= 5 ? "ring_mumbai_42" : null,
+            malicious_apk: step >= 2 ? true : null,
+          },
+          telemetry: {
+            latency_ms: 148,
+            steps_executed: step,
+            status: step >= 8 ? "COMPLETED" : "PROCESSING",
+          },
+        },
+        null,
+        2
+      ),
+    outputMarkdown: `## 🛡️ Real-Time Fraud Interception Report
 
-The landscape is bifurcating: *frontier labs* competing on raw capability, and *framework vendors* competing on orchestration.
+**Action**: \`BLOCK_AND_FREEZE\` (Settlement Prevented)
+**Confidence Score**: \`99.4%\` · **Total Interception Latency**: \`148ms\`
 
-### Key findings
-1. **Agentic frameworks** (LangGraph, CrewAI, AutoGen) now ship with built-in supervision loops and memory primitives.
-2. **MCP** has quickly become the de facto protocol for tool-calling — reducing glue code by ~60%.
-3. **Evaluation** remains the open problem: RAGAS and LangSmith lead, but enterprise adoption lags capability.
+### 1. Attack Vector Identified
+- **Modus Operandi**: Digital Arrest / Fake Bank KYC APK scam.
+- **Payload**: Attached binary contained hidden accessibility service bindings to hijack SMS OTPs.
 
-### Recommendation
-Invest in MCP-native agent systems with first-class evals. Treat agents as production software, not prompts.
+### 2. Mule Ring Subgraph Topology
+- Neo4j graph traversal identified **4 cyclic beneficiary accounts** across 2 banks.
+- Rapid withdrawal sequence halted before outbound IMPS transfer.
 
-*Report generated by Research → Analyst → Writer pipeline.*`;
+### 3. Compliance & Action
+- Beneficiary account frozen under PMLA/FIU-IND regulatory guidelines.
+- Automated incident telemetry dispatched to the central banking consortium.`,
+    metrics: {
+      latency: "148ms p95",
+      tokens: "840 tok",
+      compliance: "100% automated",
+      model: "Gemini 2.0 Flash",
+    },
+  },
+
+  codegen: {
+    id: "codegen",
+    name: "Autonomous Code & DSPy Evals",
+    subtitle: "LangGraph + DSPy Optimization Loop",
+    defaultPrompt: "Generate FastAPI webhook route with HMAC-SHA256 constant-time verification.",
+    agents: [
+      {
+        id: "generator",
+        label: "Generator",
+        role: "Synthesizes typed Python AST",
+        toolLabel: "tool.codegen",
+        status: "idle",
+        logs: [],
+      },
+      {
+        id: "reviewer",
+        label: "Reviewer",
+        role: "Security & timing attack audit",
+        toolLabel: "tool.pytest_sandbox",
+        status: "idle",
+        logs: [],
+      },
+      {
+        id: "dspy_opt",
+        label: "DSPy Optimizer",
+        role: "Teleprompter prompt compilation",
+        toolLabel: "tool.dspy_mipro",
+        status: "idle",
+        logs: [],
+      },
+    ],
+    script: [
+      { agent: "generator", status: "thinking", log: "parsing spec → FastAPI router + Pydantic schema", ms: 500 },
+      { agent: "generator", status: "tool_call", log: "emit_ast(model=claude-4.5) → 48 lines generated", ms: 800 },
+      { agent: "generator", status: "done", log: "passing candidate to security reviewer →", ms: 400 },
+      { agent: "reviewer", status: "thinking", log: "executing pytest sandbox and security linter...", ms: 600 },
+      { agent: "reviewer", status: "tool_call", log: "test_timing_attacks() → FAILED (standard == string comparison)", ms: 900 },
+      { agent: "reviewer", status: "done", log: "emitted failure feedback: CWE-208 timing leak →", ms: 400 },
+      { agent: "dspy_opt", status: "thinking", log: "triggering DSPy MIPROv2 teleprompter compilation...", ms: 600 },
+      { agent: "dspy_opt", status: "tool_call", log: "recompile_prompt(rule='hmac.compare_digest') ✓", ms: 1000 },
+      { agent: "generator", status: "done", log: "re-generated with constant-time check · 10/10 tests PASSED ✓", ms: 400 },
+    ],
+    stateJson: (step) =>
+      JSON.stringify(
+        {
+          framework: "LangGraph + DSPy",
+          task: "fastapi_hmac_webhook",
+          review_state: {
+            iteration: step >= 7 ? 2 : 1,
+            cwe_vulnerabilities: step >= 7 ? 0 : step >= 5 ? 1 : 0,
+            tests_passed: step >= 8 ? "10/10" : step >= 5 ? "8/10" : "0/10",
+            dspy_teleprompter_compiled: step >= 7,
+          },
+          compliance_adherence: step >= 8 ? "100%" : step >= 5 ? "72%" : "pending",
+        },
+        null,
+        2
+      ),
+    outputMarkdown: `## 🚀 Production Code Review Passed (DSPy Optimized)
+
+\`\`\`python
+import hmac
+import hashlib
+from fastapi import APIRouter, Header, HTTPException, Request
+
+router = APIRouter()
+
+@router.post("/v1/webhooks/payment")
+async def verify_payment_webhook(
+    request: Request,
+    x_signature: str = Header(...)
+):
+    body = await request.body()
+    expected = hmac.new(
+        key=b"prod_secret_key",
+        msg=body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
+    # DSPy compiled rule: constant-time comparison prevents timing leaks
+    if not hmac.compare_digest(expected, x_signature):
+        raise HTTPException(status_code=401, detail="Invalid HMAC signature")
+        
+    return {"status": "verified", "payload_bytes": len(body)}
+\`\`\`
+
+**Result**: 10/10 tests passed · 0 timing attack vulnerabilities · 86% coding time cut.`,
+    metrics: {
+      latency: "420ms cycle",
+      tokens: "1,240 tok",
+      compliance: "+28% higher",
+      model: "Claude 4.5 Sonnet",
+    },
+  },
+
+  chaos: {
+    id: "chaos",
+    name: "Adversarial Chaos Recovery (Tanglefoot)",
+    subtitle: "Adversarial LLM Benchmark & Stress Test",
+    defaultPrompt: "Execute multi-step synthesis under lying search tools and intermittent API drops.",
+    agents: [
+      {
+        id: "chaos_inj",
+        label: "Chaos Proxy",
+        role: "Adversarial fault injector",
+        toolLabel: "tool.fault_inject",
+        status: "idle",
+        logs: [],
+      },
+      {
+        id: "agent_core",
+        label: "Agent Core",
+        role: "Framework under test",
+        toolLabel: "framework.langgraph",
+        status: "idle",
+        logs: [],
+      },
+      {
+        id: "resilience",
+        label: "Loop Sentry",
+        role: "Resilience & cycle scoring",
+        toolLabel: "eval.resilience",
+        status: "idle",
+        logs: [],
+      },
+    ],
+    script: [
+      { agent: "chaos_inj", status: "thinking", log: "interposing proxy on tool://web_search...", ms: 500 },
+      { agent: "chaos_inj", status: "tool_call", log: "inject_fault(type='lying_search_engine', rate=0.4)", ms: 800 },
+      { agent: "chaos_inj", status: "done", log: "injected poisoned contradictory search response →", ms: 400 },
+      { agent: "agent_core", status: "thinking", log: "correlating web result with vector memory...", ms: 600 },
+      { agent: "agent_core", status: "tool_call", log: "cross_check_provenance() → discrepancy detected!", ms: 900 },
+      { agent: "agent_core", status: "done", log: "rejected poisoned source · switched to verified cache →", ms: 400 },
+      { agent: "resilience", status: "thinking", log: "tracking graph cycle entropy and backoff...", ms: 500 },
+      { agent: "resilience", status: "tool_call", log: "entropy_check(cycles=0) → no infinite loop detected", ms: 800 },
+      { agent: "resilience", status: "done", log: "goal achieved with 0 hallucinated claims · resilience score: 94.2 ✓", ms: 400 },
+    ],
+    stateJson: (step) =>
+      JSON.stringify(
+        {
+          benchmark: "Tanglefoot Chaos Engineering",
+          adversarial_mode: "LYING_SEARCH_ENGINE",
+          agent_framework: "LangGraph Multi-Agent",
+          resilience_status: {
+            fault_injected: step >= 2,
+            poisoned_data_detected: step >= 5,
+            circular_loop_prevented: step >= 7,
+            resilience_score: step >= 8 ? 94.2 : 50.0,
+          },
+        },
+        null,
+        2
+      ),
+    outputMarkdown: `## ⚡ Tanglefoot Resilience Benchmark
+
+**Target Framework**: LangGraph Multi-Agent
+**Chaos Mode**: \`LYING_SEARCH_INJECTION\` · **Resilience Score**: \`94.2 / 100\`
+
+### Evaluation Telemetry
+1. **Fault Tolerance**: Agent detected contradictory claims and rejected poisoned third-party data within 1 step.
+2. **Infinite Loop Resistance**: Zero circular cycles observed; entropy monitor confirmed deterministic exit.
+3. **Recovery Latency**: 480ms mean time to recovery (MTTR).`,
+    metrics: {
+      latency: "480ms MTTR",
+      tokens: "910 tok",
+      compliance: "94.2 Score",
+      model: "Tanglefoot Evals",
+    },
+  },
+};
 
 export function Playground() {
   const reduce = useReducedMotion();
-  const [prompt, setPrompt] = useState(samplePrompts[0]);
-  const [agents, setAgents] = useState<Agent[]>(initialAgents);
+  const [activeScenario, setActiveScenario] = useState<ScenarioId>("fraud");
+  const [activeTab, setActiveTab] = useState<"output" | "state" | "metrics">("output");
+
+  const scenario = SCENARIOS[activeScenario];
+  const [prompt, setPrompt] = useState(scenario.defaultPrompt);
+  const [agents, setAgents] = useState<Agent[]>(scenario.agents);
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearTimers = () => {
@@ -97,67 +317,83 @@ export function Playground() {
 
   useEffect(() => () => clearTimers(), []);
 
+  // Sync state when switching scenario
+  useEffect(() => {
+    clearTimers();
+    setPrompt(scenario.defaultPrompt);
+    setAgents(scenario.agents.map((a) => ({ ...a, logs: [] })));
+    setOutput("");
+    setCompleted(false);
+    setRunning(false);
+    setCurrentStep(0);
+  }, [activeScenario]);
+
   const reset = useCallback(() => {
     clearTimers();
-    setAgents(initialAgents.map((a) => ({ ...a, logs: [] })));
+    setAgents(scenario.agents.map((a) => ({ ...a, logs: [] })));
     setOutput("");
     setRunning(false);
     setCompleted(false);
-  }, []);
+    setCurrentStep(0);
+  }, [scenario.agents]);
 
-  const streamOutput = useCallback((text: string) => {
-    const words = text.split(/(\s+)/);
-    let i = 0;
-    const tick = () => {
-      i += 1;
-      setOutput(words.slice(0, i).join(""));
-      if (i < words.length) {
-        timers.current.push(setTimeout(tick, reduce ? 0 : 18));
-      } else {
-        setCompleted(true);
-      }
-    };
-    tick();
-  }, [reduce]);
+  const streamOutput = useCallback(
+    (text: string) => {
+      const words = text.split(/(\s+)/);
+      let i = 0;
+      const tick = () => {
+        i += 1;
+        setOutput(words.slice(0, i).join(""));
+        if (i < words.length) {
+          timers.current.push(setTimeout(tick, reduce ? 0 : 16));
+        } else {
+          setCompleted(true);
+        }
+      };
+      tick();
+    },
+    [reduce]
+  );
 
   const run = useCallback(() => {
     if (running) return;
     clearTimers();
-    setAgents(initialAgents.map((a) => ({ ...a, logs: [] })));
+    setAgents(scenario.agents.map((a) => ({ ...a, logs: [] })));
     setOutput("");
     setCompleted(false);
     setRunning(true);
+    setCurrentStep(0);
 
-    const topic = prompt.replace(/[.?]$/, "").slice(0, 40);
-    const steps = scripts.default;
+    const steps = scenario.script;
     let delay = 0;
 
-    steps.forEach((step) => {
+    steps.forEach((step, idx) => {
       delay += reduce ? 40 : step.ms;
       timers.current.push(
         setTimeout(() => {
+          setCurrentStep(idx + 1);
           setAgents((prev) =>
             prev.map((a) =>
               a.id === step.agent
                 ? {
                     ...a,
                     status: step.status,
-                    logs: [...a.logs, step.log.replace("{topic}", topic)],
+                    logs: [...a.logs, step.log],
                   }
-                : a,
-            ),
+                : a
+            )
           );
-        }, delay),
+        }, delay)
       );
     });
 
     timers.current.push(
       setTimeout(() => {
-        streamOutput(finalOutput);
+        streamOutput(scenario.outputMarkdown);
         setRunning(false);
-      }, delay + (reduce ? 40 : 300)),
+      }, delay + (reduce ? 40 : 300))
     );
-  }, [prompt, running, reduce, streamOutput]);
+  }, [scenario, running, reduce, streamOutput]);
 
   return (
     <section
@@ -167,19 +403,44 @@ export function Playground() {
     >
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="The Wow Moment"
-          title="A live multi-agent run, right here."
-          description="Pick a prompt, hit run. Three agents collaborate — Research scouts, Analyst synthesizes, Writer composes. Status chips show live state, output streams in."
+          eyebrow="Live Autonomous Simulation"
+          title="Interactive multi-agent orchestration."
+          description="Simulate real-world agent pipelines across fraud interception, DSPy code compilation, and adversarial chaos recovery with live state telemetry."
         />
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-          {/* Prompt panel */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-[var(--hairline)] bg-[var(--bg-elev)]/40 p-5">
-            <div className="flex items-center justify-between">
-              <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg-subtle)]">
-                prompt
+        {/* Domain Scenario Switcher Tabs */}
+        <div className="mt-10 flex flex-wrap items-center gap-2">
+          {(Object.keys(SCENARIOS) as ScenarioId[]).map((key) => {
+            const sc = SCENARIOS[key];
+            const isActive = activeScenario === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveScenario(key)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200",
+                  isActive
+                    ? "border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--accent)] shadow-sm"
+                    : "border-[var(--hairline-strong)] bg-[var(--bg-elev)]/50 text-[var(--fg-muted)] hover:border-[var(--hairline)] hover:text-[var(--fg)]"
+                )}
+              >
+                <span>{sc.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+          {/* Controls & Agent Nodes Panel */}
+          <div className="flex flex-col gap-4 rounded-2xl border border-[var(--hairline)] bg-[var(--bg-elev)]/40 p-6 backdrop-blur-sm">
+            <div className="flex items-center justify-between border-b border-[var(--hairline)] pb-3">
+              <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--accent)] font-semibold">
+                {scenario.subtitle}
               </span>
-              <span className="mono text-[11px] text-[var(--fg-subtle)]">demo.ts</span>
+              <span className="mono text-[11px] text-[var(--fg-subtle)]">
+                {running ? "● simulation running" : "○ ready"}
+              </span>
             </div>
 
             <label className="sr-only" htmlFor="playground-prompt">
@@ -190,22 +451,9 @@ export function Playground() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}
-              className="w-full resize-none rounded-xl border border-[var(--hairline)] bg-[var(--bg)] px-4 py-3 text-[15px] leading-relaxed text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:border-[var(--accent)]/50 focus:outline-none"
-              placeholder="Ask the agents to research something…"
+              className="w-full resize-none rounded-xl border border-[var(--hairline)] bg-[var(--bg)] px-4 py-3 text-sm leading-relaxed text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:border-[var(--accent)]/50 focus:outline-none"
+              placeholder="Simulation prompt..."
             />
-
-            <div className="flex flex-wrap gap-2">
-              {samplePrompts.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setPrompt(s)}
-                  className="rounded-full border border-[var(--hairline-strong)] bg-[var(--bg)] px-3 py-1 text-xs text-[var(--fg-muted)] transition-colors hover:border-white/20 hover:text-[var(--fg)]"
-                >
-                  {s.length > 42 ? s.slice(0, 42) + "…" : s}
-                </button>
-              ))}
-            </div>
 
             <div className="flex items-center gap-2">
               <Button
@@ -217,12 +465,12 @@ export function Playground() {
                 {running ? (
                   <span className="inline-flex items-center gap-2">
                     <Sparkles size={16} className="animate-pulse" aria-hidden />
-                    running…
+                    running simulation…
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-2">
                     <Play size={15} aria-hidden />
-                    Run pipeline
+                    Run Pipeline
                   </span>
                 )}
               </Button>
@@ -234,48 +482,158 @@ export function Playground() {
               </Button>
             </div>
 
-            <div className="mt-2 grid grid-cols-3 gap-2">
+            {/* Agent Status Cards */}
+            <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               {agents.map((a, i) => (
                 <AgentCard key={a.id} agent={a} index={i} />
               ))}
             </div>
+
+            {/* Live Step Logs */}
+            <div className="rounded-xl border border-[var(--hairline)] bg-[#050608] p-3 text-xs mono text-[var(--fg-muted)] space-y-1 max-h-36 overflow-y-auto">
+              <span className="text-[10px] uppercase text-[var(--fg-subtle)] block mb-1">
+                Execution Trace
+              </span>
+              {agents.flatMap((a) => a.logs).length === 0 ? (
+                <span className="text-[var(--fg-subtle)]">Hit &quot;Run Pipeline&quot; to begin agent trace...</span>
+              ) : (
+                agents.flatMap((a) => a.logs).map((log, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-[11px]">
+                    <span className="text-[var(--accent)]">›</span>
+                    <span>{log}</span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
-          {/* Output panel */}
-          <div className="flex flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--bg-elev)]/40 p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg-subtle)]">
-                output
+          {/* Output & Telemetry Viewport */}
+          <div className="flex flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--bg-elev)]/40 p-6">
+            {/* Viewport Tabs */}
+            <div className="flex items-center justify-between border-b border-[var(--hairline)] pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("output")}
+                  className={cn(
+                    "mono text-xs px-2.5 py-1 rounded-md transition-colors",
+                    activeTab === "output"
+                      ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold"
+                      : "text-[var(--fg-subtle)] hover:text-[var(--fg)]"
+                  )}
+                >
+                  Markdown Output
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("state")}
+                  className={cn(
+                    "mono text-xs px-2.5 py-1 rounded-md transition-colors",
+                    activeTab === "state"
+                      ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold"
+                      : "text-[var(--fg-subtle)] hover:text-[var(--fg)]"
+                  )}
+                >
+                  State Graph JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("metrics")}
+                  className={cn(
+                    "mono text-xs px-2.5 py-1 rounded-md transition-colors",
+                    activeTab === "metrics"
+                      ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold"
+                      : "text-[var(--fg-subtle)] hover:text-[var(--fg)]"
+                  )}
+                >
+                  Metrics & Evals
+                </button>
+              </div>
+
+              <span className="mono text-[10px] text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded">
+                {scenario.metrics.model}
               </span>
-              <AnimatePresence>
-                {completed && (
-                  <motion.span
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/5 px-2 py-0.5 text-[11px] text-[var(--accent)]"
-                  >
-                    <span className="h-1 w-1 rounded-full bg-[var(--accent)]" />
-                    completed
-                  </motion.span>
-                )}
-              </AnimatePresence>
             </div>
 
-            <div className="min-h-[360px] flex-1 rounded-xl border border-[var(--hairline)] bg-[var(--bg)] p-4 text-sm leading-relaxed text-[var(--fg-muted)]">
-              {!output && !running && (
-                <p className="text-[var(--fg-subtle)]">
-                  Run the pipeline to see the streamed report appear here.
-                </p>
-              )}
-              {output && <FormattedOutput text={output} />}
-              {running && (
-                <span
-                  className="caret ml-0.5 inline-block h-4 w-[2px] bg-[var(--accent)] align-middle"
-                  aria-hidden
-                />
-              )}
-            </div>
+            {/* Tab 1: Output Markdown */}
+            {activeTab === "output" && (
+              <div className="flex-1 overflow-y-auto max-h-[380px] pr-2">
+                {output ? (
+                  <div className="prose prose-invert prose-sm text-xs leading-relaxed text-[var(--fg-muted)] space-y-3">
+                    <pre className="whitespace-pre-wrap font-sans text-xs bg-transparent border-0 p-0 text-[var(--fg-muted)]">
+                      {output}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="flex h-56 flex-col items-center justify-center text-center text-xs text-[var(--fg-subtle)] mono">
+                    <Terminal size={24} className="mb-2 opacity-40" />
+                    <span>Run the simulation to stream output report...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: State Graph JSON */}
+            {activeTab === "state" && (
+              <div className="flex-1 overflow-y-auto max-h-[380px]">
+                <pre className="rounded-xl border border-[var(--hairline)] bg-[#040405] p-3 text-[11.5px] mono text-[var(--fg-muted)]">
+                  <code>{scenario.stateJson(currentStep)}</code>
+                </pre>
+              </div>
+            )}
+
+            {/* Tab 3: Metrics & Evals */}
+            {activeTab === "metrics" && (
+              <div className="flex-1 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-[var(--hairline)] bg-[#050608] p-3">
+                    <span className="mono text-[10px] uppercase text-[var(--fg-subtle)] block">
+                      Latency
+                    </span>
+                    <span className="text-xl font-bold mono text-[var(--accent)]">
+                      {scenario.metrics.latency}
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-[var(--hairline)] bg-[#050608] p-3">
+                    <span className="mono text-[10px] uppercase text-[var(--fg-subtle)] block">
+                      Token Budget
+                    </span>
+                    <span className="text-xl font-bold mono text-[var(--fg)]">
+                      {scenario.metrics.tokens}
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-[var(--hairline)] bg-[#050608] p-3">
+                    <span className="mono text-[10px] uppercase text-[var(--fg-subtle)] block">
+                      Compliance Metric
+                    </span>
+                    <span className="text-xl font-bold mono text-[var(--accent)]">
+                      {scenario.metrics.compliance}
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-[var(--hairline)] bg-[#050608] p-3">
+                    <span className="mono text-[10px] uppercase text-[var(--fg-subtle)] block">
+                      Inference Engine
+                    </span>
+                    <span className="text-sm font-bold mono text-[var(--fg)]">
+                      {scenario.metrics.model}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[var(--hairline)] bg-[#050608] p-3 text-xs mono space-y-1">
+                  <span className="text-[10px] uppercase text-[var(--fg-subtle)] block mb-1">
+                    Evaluation Verdict
+                  </span>
+                  <div className="flex items-center gap-2 text-[var(--accent)]">
+                    <CheckCircle2 size={14} />
+                    <span>Evaluation tests passed with zero safety violations</span>
+                  </div>
+                  <p className="text-[var(--fg-subtle)] text-[11px] mt-1">
+                    Traced with DSPy teleprompter & LangSmith assertions.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -284,110 +642,30 @@ export function Playground() {
 }
 
 function AgentCard({ agent, index }: { agent: Agent; index: number }) {
-  const last = agent.logs[agent.logs.length - 1];
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.05 * index, ease: [0.22, 1, 0.36, 1] }}
-      className={cn(
-        "flex flex-col gap-2 rounded-xl border bg-[var(--bg)] p-3 transition-colors",
-        agent.status === "idle"
-          ? "border-[var(--hairline)]"
-          : "border-[var(--accent)]/40 shadow-[0_0_32px_-12px_var(--accent-glow)]",
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <span className="mono text-[11px] text-[var(--fg)]">{agent.label.toLowerCase()}</span>
-        <StatusChip status={agent.status} />
-      </div>
-      <p className="text-[11px] text-[var(--fg-subtle)] leading-snug">{agent.role}</p>
-      <div className="mt-1 h-[28px] overflow-hidden">
-        <AnimatePresence mode="popLayout">
-          {last && (
-            <motion.p
-              key={last}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.25 }}
-              className="mono text-[10px] leading-tight text-[var(--fg-muted)]"
-            >
-              › {last}
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
-}
-
-function StatusChip({ status }: { status: Status }) {
-  const map: Record<Status, { label: string; color: string; bg: string }> = {
-    idle: { label: "idle", color: "#5c5c5c", bg: "rgba(255,255,255,0.04)" },
-    thinking: { label: "thinking", color: "#ffd60a", bg: "rgba(255,214,10,0.08)" },
-    tool_call: { label: "tool_call", color: "#0aa5ff", bg: "rgba(10,165,255,0.08)" },
-    done: { label: "done", color: "#00ff88", bg: "rgba(0,255,136,0.08)" },
+  const statusColors: Record<Status, string> = {
+    idle: "bg-white/10 text-[var(--fg-subtle)]",
+    thinking: "bg-blue-500/20 text-blue-400 border-blue-500/40",
+    tool_call: "bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40",
+    done: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
   };
-  const s = map[status];
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px]"
-      style={{ color: s.color, background: s.bg, border: `1px solid ${s.color}30` }}
-    >
-      <span className="h-1 w-1 rounded-full" style={{ background: s.color }} />
-      {s.label}
-    </span>
-  );
-}
 
-function FormattedOutput({ text }: { text: string }) {
-  const lines = text.split("\n");
   return (
-    <div className="prose-output space-y-2 text-[var(--fg)]">
-      {lines.map((line, i) => {
-        if (line.startsWith("## ")) {
-          return (
-            <h3 key={i} className="mt-2 text-base font-semibold text-[var(--fg)]">
-              {line.replace("## ", "")}
-            </h3>
-          );
-        }
-        if (line.startsWith("### ")) {
-          return (
-            <h4 key={i} className="mt-2 text-sm font-medium text-[var(--fg)]">
-              {line.replace("### ", "")}
-            </h4>
-          );
-        }
-        if (line.startsWith("*")) {
-          return (
-            <p key={i} className="text-xs italic text-[var(--fg-subtle)]">
-              {line.replace(/^\*|\*$/g, "")}
-            </p>
-          );
-        }
-        if (/^\d+\.\s/.test(line)) {
-          const rest = line.replace(/^\d+\.\s/, "");
-          return (
-            <p key={i} className="text-sm text-[var(--fg-muted)]">
-              <span className="mono text-[var(--accent)]">{line.match(/^\d+/)}. </span>
-              <span dangerouslySetInnerHTML={{ __html: renderInline(rest) }} />
-            </p>
-          );
-        }
-        if (!line.trim()) return <div key={i} className="h-1" />;
-        return (
-          <p key={i} className="text-sm text-[var(--fg-muted)]" dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
-        );
-      })}
+    <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--hairline)] bg-[var(--bg)] p-3">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-xs text-[var(--fg)]">{agent.label}</span>
+        <span
+          className={cn(
+            "mono rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-wide",
+            statusColors[agent.status]
+          )}
+        >
+          {agent.status}
+        </span>
+      </div>
+      <p className="text-[11px] text-[var(--fg-subtle)] line-clamp-1">{agent.role}</p>
+      <span className="mono text-[10px] text-[var(--accent)] opacity-80 pt-0.5">
+        {agent.toolLabel}
+      </span>
     </div>
   );
-}
-
-function renderInline(text: string) {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-[var(--fg)] font-medium">$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em class="text-[var(--fg-muted)]">$1</em>')
-    .replace(/`(.+?)`/g, '<code class="mono text-[var(--accent)]">$1</code>');
 }
