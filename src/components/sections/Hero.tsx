@@ -29,7 +29,7 @@ export function Hero() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)] opacity-75" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
           </span>
-          <span className="mono">available for senior AI engineer roles</span>
+          <span className="mono">available for forward deployed AI engineer roles</span>
         </motion.div>
 
         <motion.h1

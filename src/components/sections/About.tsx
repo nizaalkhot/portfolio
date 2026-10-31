@@ -5,10 +5,17 @@ import { useEffect, useRef, useState } from "react";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
-import { site, stats } from "@/data/content";
+import { site, getYearsOfExperience, getStats } from "@/data/content";
 import { FileDown, Mail } from "lucide-react";
 
 export function About() {
+  const [years, setYears] = useState(() => getYearsOfExperience());
+  const [currentStats, setCurrentStats] = useState(() => getStats());
+
+  useEffect(() => {
+    setYears(getYearsOfExperience());
+    setCurrentStats(getStats());
+  }, []);
   return (
     <section
       id="about"
@@ -23,7 +30,7 @@ export function About() {
           <div className="flex flex-col gap-8">
             <Reveal>
               <p className="text-lg leading-relaxed text-[var(--fg-muted)]">
-                3.5+ years of software engineering, now focused on{" "}
+                {years}+ years of software engineering, now focused on{" "}
                 <span className="text-[var(--fg)]">autonomous multi-agent systems</span>{" "}
                 and <span className="text-[var(--fg)]">generative AI</span> at enterprise scale.
                 I architect orchestration graphs in <span className="mono text-[var(--fg)]">LangGraph</span>,
@@ -35,7 +42,7 @@ export function About() {
 
             <Reveal delay={0.1}>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {stats.map((s, i) => (
+                {currentStats.map((s, i) => (
                   <StatBlock key={s.label} stat={s} delay={i * 0.05} />
                 ))}
               </div>
