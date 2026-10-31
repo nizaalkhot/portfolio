@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { site, experience, skillGroups, projects, capabilities } from "@/data/content";
+import { site, experience, skillGroups, projects, capabilities, certifications, publications } from "@/data/content";
 import Link from "next/link";
 
 type Line = { kind: "cmd" | "out" | "err" | "sys" | "banner"; text: string };
@@ -17,10 +17,11 @@ const HELP = [
   "whoami            — bio",
   "ls experience     — list roles",
   "ls skills         — list skill groups",
-  "ls projects       — list projects",
+  "ls projects       — list projects & repositories",
   "ls capabilities   — list capabilities",
+  "ls credentials    — list certifications & publications",
   "cat resume.txt    — print resume summary",
-  "open <target>     — open github | linkedin | instagram | email",
+  "open <target>     — open github | linkedin | credly | resume | <project>",
   "contact           — show contact info",
   "home              — back to /",
   "clear             — clear screen",
@@ -111,7 +112,19 @@ export function TerminalClient() {
             });
           } else if (arg === "projects" || arg === "work") {
             projects.forEach((p, i) => {
-              println(`${String(i + 1).padStart(2, "0")}  ${p.name} — ${p.tagline}`);
+              const url = p.github || p.live || p.href || "";
+              println(`${String(i + 1).padStart(2, "0")}  [${p.category}] ${p.name}`);
+              println(`    ↳ ${p.tagline}${url ? ` (${url})` : ""}`);
+            });
+          } else if (arg === "credentials" || arg === "certs") {
+            println("## Certifications");
+            certifications.forEach((c) => {
+              println(`- ${c.name} (${c.issuer})`);
+            });
+            println("");
+            println("## Publications");
+            publications.forEach((p) => {
+              println(`- "${p.title}" · ${p.journal} (${p.year})`);
             });
           } else if (arg === "capabilities") {
             capabilities.forEach((c) => println(`- ${c.title} — ${c.definition}`));
@@ -123,15 +136,33 @@ export function TerminalClient() {
           break;
         case "open":
           {
+            const projectTargets: Record<string, string> = {
+              drishti: "https://github.com/nizaalkhot/Drishti",
+              kaleido: "https://github.com/nizaalkhot/Kaleido",
+              jansetu: "https://github.com/nizaalkhot/JanSetu",
+              tanglefoot: "https://github.com/nizaalkhot/tanglefoot",
+              mintwright: "https://github.com/nizaalkhot/mintwright",
+              skills: "https://github.com/nizaalkhot/skills",
+              "resume-optimizer": "https://github.com/nizaalkhot/multi-agent-resume-optimizer",
+              resumeoptimizer: "https://github.com/nizaalkhot/multi-agent-resume-optimizer",
+              "maths-agent": "https://github.com/nizaalkhot/maths-agent",
+              maths: "https://github.com/nizaalkhot/maths-agent",
+            };
+
             const targets: Record<string, string> = {
               github: site.socials.github,
+              credly: site.socials.credly,
               linkedin: site.socials.linkedin,
               instagram: site.socials.instagram,
               hackerrank: site.socials.hackerrank,
               email: `mailto:${site.email}`,
               mail: `mailto:${site.email}`,
               resume: site.resumeUrl,
+              console: "/console",
+              observability: "/console",
+              ...projectTargets,
             };
+
             const t = targets[arg];
             if (!t) {
               println(`open: ${arg || "(none)"}: unknown target`, "err");

@@ -3,7 +3,7 @@
 import { Command } from "cmdk";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { navLinks, site } from "@/data/content";
+import { navLinks, site, projects } from "@/data/content";
 import {
   ArrowRight,
   FileDown,
@@ -11,6 +11,9 @@ import {
   Terminal,
   Award,
   Home,
+  Code2,
+  Activity,
+  ShieldCheck,
 } from "lucide-react";
 import { GithubIcon, InstagramIcon, LinkedinIcon } from "./BrandIcons";
 
@@ -68,7 +71,7 @@ export function CommandPalette() {
           <div className="border-b border-[var(--hairline)] px-4 py-3">
             <Command.Input
               autoFocus
-              placeholder="Jump to a section, open a link…"
+              placeholder="Jump to a section, repo, or link…"
               className="w-full bg-transparent text-[15px] text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none"
             />
           </div>
@@ -94,6 +97,27 @@ export function CommandPalette() {
               <PaletteItem icon={<Terminal size={14} />} onSelect={() => go("/terminal")}>
                 Terminal
               </PaletteItem>
+              <PaletteItem icon={<Activity size={14} />} onSelect={() => go("/console")}>
+                Observability Console
+              </PaletteItem>
+            </Command.Group>
+
+            <Command.Group heading="Projects & Repositories" className="px-2 pb-2 pt-3 text-[11px] uppercase tracking-[0.14em] text-[var(--fg-subtle)]">
+              {projects.map((p) => {
+                const target = p.github || p.live || p.href || "#work";
+                return (
+                  <PaletteItem
+                    key={p.name}
+                    icon={p.github ? <GithubIcon size={14} /> : <Code2 size={14} />}
+                    onSelect={() => go(target)}
+                  >
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs text-[var(--fg)] font-medium">{p.name}</span>
+                      <span className="mono text-[10px] text-[var(--fg-subtle)]">{p.tagline}</span>
+                    </div>
+                  </PaletteItem>
+                );
+              })}
             </Command.Group>
 
             <Command.Group heading="Actions" className="px-2 pb-2 pt-3 text-[11px] uppercase tracking-[0.14em] text-[var(--fg-subtle)]">
@@ -114,6 +138,9 @@ export function CommandPalette() {
               </PaletteItem>
               <PaletteItem icon={<GithubIcon size={14} />} onSelect={() => go(site.socials.github)}>
                 GitHub
+              </PaletteItem>
+              <PaletteItem icon={<ShieldCheck size={14} />} onSelect={() => go(site.socials.credly)}>
+                Credly Verified Badges
               </PaletteItem>
               <PaletteItem icon={<InstagramIcon size={14} />} onSelect={() => go(site.socials.instagram)}>
                 Instagram
